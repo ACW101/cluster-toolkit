@@ -1,0 +1,21 @@
+# my-slurm-chart/values.yaml
+
+# Controls the creation of the Namespace resource.
+# Set to false if you use `helm install --create-namespace`
+namespace:
+  create: true
+
+# Replaces ${image}
+logfileImage: "ghcr.io/slinkyproject/sackd:24.11-ubuntu24.04"
+
+filestore:
+  # Replaces ${pv_name}
+  pvName: "slurm-key-pv"
+  
+  # Replaces ${pvc_name}
+  pvcName: "slurm-key-pvc"
+
+  # Replaces ${capacity}
+  capacity: "1Ti"
+
+  shareName: "slurm/key_distribution"

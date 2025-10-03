@@ -16,28 +16,75 @@
 ### GKE NodeSet
 locals {
   manifest_path = "${path.module}/templates/nodeset-general.yaml.tftpl"
+
+  cluster_id_parts = split("/", var.cluster_id)
+  cluster_name     = local.cluster_id_parts[5]
+  cluster_location = local.cluster_id_parts[3]
+  project_id       = var.project_id != null ? var.project_id : local.cluster_id_parts[1]
 }
 
-module "kubectl_apply" {
-  source = "../../../../modules/management/kubectl-apply"
+data "google_client_config" "default" {}
 
-  cluster_id = var.cluster_id
-  project_id = var.project_id
+data "google_container_cluster" "gke_cluster" {
+  project  = local.project_id
+  name     = local.cluster_name
+  location = local.cluster_location
+}
 
-  apply_manifests = [{
-    source = local.manifest_path,
-    template_vars = {
-      slurm_namespace = var.slurm_namespace,
-      nodeset_name    = "${var.slurm_cluster_name}-${var.nodeset_name}",
-      nodeset_cr_name = "${var.slurm_cluster_name}-${var.nodeset_name}",
-      controller_name = "${var.slurm_cluster_name}-controller",
-      node_pool_name  = var.node_pool_names[0],
-      node_count      = var.node_count_static,
-      image           = var.image,
-      home_pvc        = module.home_pv.pvc_name
-      slurm_key_pvc   = module.slurm_key_pv.pvc_name
-    }
-  }]
+resource "helm_release" "gke_nodesets" {
+  name      = "gke-nodesets"
+  provider  = helm
+  version     = "0.7.0"
+  chart     = "${path.module}/helm-charts/gke-nodesets"
+  namespace = var.slurm_namespace
+  create_namespace = true
+
+  set {
+    name = "nodeset.name"
+    value = "${var.slurm_cluster_name}-${var.nodeset_name}"
+  }
+
+  set {
+    name = "nodeset.replicas"
+    value = var.node_count_static
+  }
+
+  set {
+    name = "nodeset.nodePool"
+    value = "${var.slurm_cluster_name}-${var.nodeset_name}"
+  }
+
+  set {
+    name = "nodeset.configPvc"
+    value = "slurm-key-pvc"
+  }
+
+  set {
+    name = "filestore.location"
+    value = local.cluster_location
+  }
+
+  set {
+    name = "filestore.ipAddress"
+    value = var.slurm_controller_instance.network_interface[0].network_ip
+  }
+
+  set {
+    name = "filestore.instanceName"
+    value = "slurm-key"
+  }
+
+  set {
+    name = "slurmdImage"
+    value = var.image
+  }
+
+  set {
+    name = "slurm.controllerName"
+    value = "${var.slurm_cluster_name}-controller"
+  }
+
+  depends_on = [ null_resource.dependency_waiter ]
 }
 
 data "google_storage_bucket" "this" {
@@ -61,4 +108,13 @@ resource "google_storage_bucket_object" "gke_nodeset_config" {
   bucket  = data.google_storage_bucket.this.name
   name    = "${var.slurm_bucket_dir}/nodeset_configs/${var.nodeset_name}.yaml"
   content = yamlencode(local.nodeset)
+}
+
+resource "null_resource" "dependency_waiter" {
+  # The triggers map is the key. When the value of the slurm_operator_chart_dependency
+  # variable changes, this resource will be replaced. More importantly, Terraform
+  # sees that this resource cannot be created until it receives this value.
+  triggers = {
+    chart_name = var.slurm_operator_chart
+  }
 }

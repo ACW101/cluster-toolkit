@@ -12,17 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-output "slurm_namespace" {
-  description = "namespace for the slurm chart"
-  value       = var.slurm_namespace
-}
-
-output "slurm_operator_namespace" {
-  description = "namespace for the slinky operator chart"
-  value       = var.slurm_operator_namespace
-}
-
-output "slurm_operator_chart" {
-  description = "namespace for the slurm chart"
-  value       = one(helm_release.slurm_operator[*].chart)
+provider "helm" {
+  kubernetes {
+    host  = "https://${data.google_container_cluster.gke_cluster.endpoint}"
+    token = data.google_client_config.default.access_token
+    cluster_ca_certificate = base64decode(
+      data.google_container_cluster.gke_cluster.master_auth[0].cluster_ca_certificate,
+    )
+  }
 }

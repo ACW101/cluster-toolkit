@@ -100,17 +100,8 @@ deployment_groups:
       name: gke-compute-pool
       initial_node_count: $(vars.gke_nodeset_replicas)
       disk_type: pd-balanced
-      machine_type: c2-standard-16
+      machine_type: n1-standard-4
       zones: [$(vars.zone)]
-
-  - id: gke_ns_manifest
-    source: modules/management/kubectl-apply
-    use: [gke_cluster]
-    settings:
-      apply_manifests:
-      - source: $(ghpc_stage("./files/slurm-namespace.yaml.tftpl"))
-        template_vars:
-          namespace: $(vars.slurm_namespace)
 
   - id: slinky
     source: community/modules/scheduler/slinky
@@ -118,7 +109,6 @@ deployment_groups:
     - gke_cluster
     - gke_base_pool  # Optionally specify nodepool(s) to avoid operator components running on HPC hardware
     settings:
-      slurm_operator_namespace: $(vars.slurm_namespace)
       install_slurm_operator_chart: true
       install_slurm_chart: false
 

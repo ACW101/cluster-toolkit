@@ -116,3 +116,13 @@ variable "filestore_id" {
     error_message = "The 'filestore_id' variable must contain exactly one element."
   }
 }
+
+variable "slurm_operator_chart" {
+  description = "An array of identifier for a filestore with the format `projects/{{project}}/locations/{{location}}/instances/{{name}}`."
+  type        = string
+
+  validation {
+    condition     = var.slurm_operator_chart != null
+    error_message = "The slurm_operation must be installed."
+  }
+}
